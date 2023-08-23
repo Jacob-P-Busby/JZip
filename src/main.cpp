@@ -1,8 +1,7 @@
 #include <cassert>
 #include <chrono>
-#include <filesystem>
-#include <fstream>
 #include <functional>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <sstream>
@@ -29,40 +28,23 @@
 
 
 /**
- * @brief Compresses a string using a map of characters and their paths, and outputs it to a file
+ * @brief Writes out the vector of booleans to the ofstream
  *
  * @details
+ * The vector is written out bit by bit\n
+ * If the vector is not a multiple of 8, the last byte will be padded with undefined bits
  *
- *
- * @param in A const string to compress passed by reference
- * @param charMap A const map of characters and their paths used to compress the string passed by reference
- * @param out An ofstream to write the compressed data to
+ * @param toWrite The data to be written out
+ * @param out The ofstream to write to
  */
-void compress(const std::string &in, const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
+void writeOut(std::vector<bool> &toWrite, std::ofstream &out)
 {
-    unsigned char byte = 0;
     int bitCount = 0;
-    for (const auto character : in)
+    unsigned char byte = 0;
+    for (const auto &bit : toWrite)
     {
-        for (const auto &bit : charMap.at(character))
-        {
-            byte = (byte << 1) | bit;
-            bitCount++;
-            if (bitCount == 8)
-            {
-                out << byte;
-                byte = 0;
-                bitCount = 0;
-            }
-        }
-    }
-
-    char endByte = 0;
-    while (bitCount != 0)
-    {
-        byte = byte << 1;
+        byte = (byte << 1) | bit;
         bitCount++;
-        endByte++;
         if (bitCount == 8)
         {
             out << byte;
@@ -70,7 +52,84 @@ void compress(const std::string &in, const std::map<char, std::vector<bool>> &ch
             bitCount = 0;
         }
     }
-    out << endByte;
+    if (bitCount != 0)
+    {
+        byte = byte << (8 - bitCount);
+        out << byte;
+    }
+}
+
+
+/**
+ * @brief Compresses a string using a map of characters and their paths, and outputs it to a file in 10kb chunks
+ *
+ * @details
+ * This function assumes the map is valid,
+ * the string is not empty,
+ * and the dict has already been written to the file\n
+ * The compressed data is written out in the following format:\n
+ * 1 byte counting the bits to be ignored at the of the chunk\n
+ * 9999 bytes of compressed data, including undefined trailing bits\n
+ * The chunks can be decompressed in parallel, allowing for faster decompression using multithreading\n
+ * The last chunk will be padded with with undefined trailing bits to the nearest byte, these will be counted
+ * by the first byte of the chunk, and ignored when decompressing
+ *
+ * @param in A const string to compress passed by reference
+ * @param charMap A const map of characters and their paths used to compress the string passed by reference
+ * @param out An ofstream to write the compressed data to
+ */
+void compress(const std::string &in, const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
+{
+    std::vector<bool> compressedData;
+    std::stringstream stringStream(in);
+
+    // Reserve space for trailing bits
+    for (int i = 0; i < 8; i++)
+        compressedData.push_back(false);
+
+
+    while (true)
+    {
+        if (stringStream.eof())
+        {
+            if (compressedData.size() % 8 != 0)
+            {
+                unsigned char trailingBits = 0;
+                while (compressedData.size() % 8 != 0)
+                {
+                    compressedData.push_back(false);
+                    trailingBits++;
+                }
+                for (int i = 0; i < 8; i++)
+                    compressedData[i] = (trailingBits >> (7 - i)) & 1;
+            }
+            writeOut(compressedData, out);
+            break;
+        }
+
+        char c;
+        stringStream >> c;
+        for (const auto &bit : charMap.at(c))
+        {
+            compressedData.push_back(bit);
+        }
+
+        if (compressedData.size() > 80000) // 10KB in bits
+        {
+            unsigned char trailingBits = 0;
+            for (int i = 0; i < charMap.at(c).size(); i++)
+                compressedData.pop_back();
+            while (compressedData.size() != 80000)
+            {
+                compressedData.push_back(false);
+                trailingBits++;
+            }
+            for (int i = 0; i < 8; i++)
+                compressedData[i] = (trailingBits >> (7 - i)) & 1;
+            writeOut(compressedData, out);
+            compressedData.clear();
+        }
+    }
 }
 
 
@@ -274,9 +333,7 @@ int main(int argc, char *argv[])
         for (int i = 0; i < pair.second.size(); i++)
         assert(pair.second[i] == charMap[pair.first][i]);
     }
-    auto dictAssertTime = timer.sectMicroseconds();
-
-    Interpreter interpreter(charMap);
+    auto assertTime = timer.sectMicroseconds();
 
     std::cout << "validityCheck: " << validityCheckTime << " microseconds" << '\n';
     std::cout << "slurp: " << slurpTime << " microseconds" << '\n';
@@ -287,11 +344,8 @@ int main(int argc, char *argv[])
     std::cout << "compress: " << compressTime << " microseconds" << '\n';
     std::cout << "inFile: " << inFileTime << " microseconds" << '\n';
     std::cout << "readDict: " << readDictTime << " microseconds" << '\n';
-    std::cout << "dictAssertTime: " << dictAssertTime << " microseconds" << '\n';
-    std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << "\n\n";
-
-    std::cout << "Original file size: " << formatBytes(std::filesystem::file_size(argv[1])) << '\n';
-    std::cout << "Compressed file size: " << formatBytes(std::filesystem::file_size(jzipFileName)) << '\n';
+    std::cout << "assertTime: " << assertTime << " microseconds" << '\n';
+    std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << '\n';
 
     std::cout << "All done :)" << std::endl;
 
