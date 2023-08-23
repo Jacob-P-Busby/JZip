@@ -1,7 +1,8 @@
 #include <cassert>
 #include <chrono>
-#include <functional>
+#include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <map>
 #include <sstream>
@@ -345,9 +346,11 @@ int main(int argc, char *argv[])
     std::cout << "inFile: " << inFileTime << " microseconds" << '\n';
     std::cout << "readDict: " << readDictTime << " microseconds" << '\n';
     std::cout << "assertTime: " << assertTime << " microseconds" << '\n';
-    std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << '\n';
+    std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << "\n\n";
+    std::cout << "Original file size: " << formatBytes(std::filesystem::file_size(argv[1])) << '\n';
+    std::cout << "Compressed file size: " << formatBytes(std::filesystem::file_size(jzipFileName)) << '\n';
 
-    std::cout << "All done :)" << std::endl;
+    std::cout << "All done :)" << '\n';
 
     return 0;
 }
