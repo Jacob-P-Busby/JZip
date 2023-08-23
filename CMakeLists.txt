@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
-project(jzip)
+project(jzip VERSION 0.1)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED 17)
+
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
     set(CMAKE_CXX_FLAGS_RELEASE "-O3")
