@@ -132,101 +132,50 @@ void compress(const std::string &in, const std::map<char, std::vector<bool>> &ch
     }
 }
 
-/**
- * @brief Converts a map of characters and boolean vectors into a single boolean vector
- *
- * @details
- * This uses the following format:\n
- * 8-bit char path length + n bit path rounded up to the nearest byte + 8-bit ASCII character\n
- * e.g. 3101a = 00000011 10100000 01100001\n
- * null (00000000) where path length would be, indicates end of dict and start of content\n
- * Unused bits are undefined, don't rely on them being 0
- *
- * @param charMap a const map of characters and their paths passed by reference
- * @return A vector of booleans representing the dict, using the format described above
- * @throws std::runtime_error if a path is longer than 255 bits
- *
- * @todo Remove byte remove byte rounding, increasing compaction, low priority but would be nice
- */
-[[nodiscard]] std::vector<bool> vectorDict(const std::map<char, std::vector<bool>> &charMap)
+
+// TODO: Change path to bitflags
+void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
 {
-    std::vector<bool> returnVector;
-    for (const auto &key : charMap)
+    for (const auto &pair : charMap)
     {
-        std::vector<bool> appendVector;
-
-        // Path length
-        if (key.second.size() > 255) throw std::runtime_error("Path length too long");
-        auto pathLength = static_cast<unsigned char>(key.second.size());
-        for (int i = 7; i >= 0; i--)
+        unsigned char pathLength = pair.second.size();
+        out << pathLength;
+        for (const auto &bit : pair.second)
         {
-            returnVector.push_back((pathLength >> i) & 1);
+            out << bit;
         }
-
-        // Path
-        for (const auto &bit : key.second)
-        {
-            returnVector.push_back(bit);
-        }
-        // Blank bits to nearest 8th
-        for (int i = 0; (i < (8 - (key.second.size() % 8))) && key.second.size() % 8 != 0; i++)
-        {
-            returnVector.push_back(false);
-        }
-
-        // Character
-        for (int i = 7; i >= 0; i--)
-        {
-            returnVector.push_back((key.first >> i) & 1);
-        }
+        out << pair.first;
     }
-    // Null character to indicate end of dict
-    for (int i = 0; i < 8; i++)
-    {
-        returnVector.push_back(false);
-    }
-
-    return returnVector;
+    out << '\0'; // Null terminator
 }
 
 
-/**
- * @brief Interprets a boolean vector dict into a map of characters and their paths
- *
- * @details
- * This assumes the dict is in the format described in vectorDict()
- *
- * @param binDict A const vector of booleans representing the dict passed by reference\n
- * <bold>THIS WILL BE LEFT AT THE END OF THE DICT AFTER THE NULL TERMINATOR</bold>
- * @return A map of characters and their paths
- * @throws std::runtime_error Thrown if the dict comes to an unexpected end
- */
-[[nodiscard]] std::map<char, std::vector<bool>> interpretDict(std::ifstream &in)
+[[nodiscard]] std::map<char, std::vector<bool>> readDict(std::ifstream &in)
 {
-    std::map<char, std::vector<bool>> returnMap;
+    std::map<char, std::vector<bool>> charMap;
+    std::vector<bool> tempPath;
     while (true)
     {
-        unsigned char pathLength = 0;
-        in >> pathLength;
+        if (in.eof()) throw std::runtime_error("Unexpected EOF");
+        unsigned char pathLength;
+        pathLength = in.get();
         if (pathLength == 0) break;
 
-        std::vector<bool> path;
-        unsigned char bits;
         for (int i = 0; i < pathLength; i++)
         {
-            if (i % 8 == 0) // Is a new byte needed?
-                in >> bits;
-
-            else
-                path.push_back(bits >> (7 - (i % 8)) & 1); // Add new bit to path
+            if (in.eof()) throw std::runtime_error("Unexpected EOF");
+            bool bit;
+            bit = in.get();
+            tempPath.push_back(bit);
         }
 
-        // Add path to map
+        if (in.eof()) throw std::runtime_error("Unexpected EOF");
         char c;
-        in >> c;
-        returnMap[c] = path;
+        c = static_cast<char>(in.get());
+        charMap[c] = tempPath;
+        tempPath.clear();
     }
-    return returnMap;
+    return charMap;
 }
 
 
@@ -248,63 +197,6 @@ void compress(const std::string &in, const std::map<char, std::vector<bool>> &ch
     if (argc != 2) return false; // Is there more than 1 argument? Not taking options/multiple files rn.
     if (argv[1][0] == '-') return false; // Is first argument a flag? Not using those rn.
     return true; // We all good
-}
-
-
-/**
- * @brief Writes the dict and compressed data to a file
- *
- * @details
- * This is thread safe, as long as ofstream isn't used, and is closed after the thread is joined\n\n
- *
- * binDict is written out as is, not including the null character appended at the end.\n
- *
- * compressedData is written out in the following format:\n
- * 1 byte counting the trailing bits at the end\n
- * 9999 bytes of compressed data, including undefined trailing bits\n
- * This is to create nice 10kb thread safe chunks to allow parallel decompression
- *
- * @param binDict The dictionary in the format described in vectorDict()
- * @param compressedData The data from the infile compressed using the dict
- * @param outFile The ofstream to write to
- *
- * @see vectorDict()
- *
- * @todo Break up into 10kb chunks for parallel decompression, high priority
- * @todo Clean up, shit looks like it came from an Italian restaurant with the amount of spaghetti here
- */
-void writeOutDict(const std::vector<bool> &binDict, std::ofstream &outFile)
-{
-    // Write dict to file
-    unsigned char byte = 0;
-    int bitCount = 0;
-    for (const auto &bit : binDict)
-    {
-        byte = (byte << 1) | bit;
-        bitCount++;
-        if (bitCount == 8)
-        {
-            outFile << byte;
-            byte = 0;
-            bitCount = 0;
-        }
-    }
-
-    // Write trailing bits, although there shouldn't be any
-    while (bitCount != 0)
-    {
-        byte = (byte << 1);
-        bitCount++;
-        if (bitCount == 8)
-        {
-            outFile << byte;
-            byte = 0;
-            bitCount = 0;
-        }
-    }
-
-    // null character to switch from dict to data
-    outFile << '\0';
 }
 
 
@@ -406,17 +298,16 @@ int main(int argc, char *argv[])
     std::map<char, std::vector<bool>> charMap = huffmanTree.getKeys();
     auto getKeysTime = timer.sectMicroseconds();
 
-    std::vector<bool> dict = vectorDict(charMap);
-    auto vectorDictTime = timer.sectMicroseconds();
-
     // Create jzip filename
     std::string jzipFileName = argv[1];
     jzipFileName += ".jzip";
 
-    // Write to file, separate thread to avoid IO blocking
     std::ofstream outFile(jzipFileName, std::ios::binary);
-    writeOutDict(dict, std::ref(outFile));
-    auto writeOutDictTime = timer.sectMicroseconds();
+    if (!outFile.good()) throw std::runtime_error("outFile is not good");
+    auto outFileTime = timer.sectMicroseconds();
+
+    writeDict(charMap, outFile);
+    auto writeDictTime = timer.sectMicroseconds();
 
     // Write compressed data to file
     compress(input, charMap, outFile);
@@ -427,22 +318,33 @@ int main(int argc, char *argv[])
     inFile.open(jzipFileName);
 
     // Ensure inFile is in good condition
-    if (!inFile.good())
+    if (!inFile.good()) {
         throw std::runtime_error("inFile is not good");
+    }
+    auto inFileTime = timer.sectMicroseconds();
 
-    std::map<char, std::vector<bool>> newCharMap = interpretDict(inFile);
-    auto interpretDictTime = timer.sectMicroseconds();
+    std::map<char, std::vector<bool>> newCharMap = readDict(inFile);
+    std::cout << "Here\n";
+    auto readDictTime = timer.sectMicroseconds();
 
-    assert(newCharMap == charMap);
+    for (const auto &pair : charMap)
+    {
+        assert(pair.second.size() == newCharMap[pair.first].size());
+        for (int i = 0; i < pair.second.size(); i++)
+        assert(pair.second[i] == charMap[pair.first][i]);
+    }
+    auto assertTime = timer.sectMicroseconds();
 
     std::cout << "validityCheck: " << validityCheckTime << " microseconds" << '\n';
     std::cout << "slurp: " << slurpTime << " microseconds" << '\n';
     std::cout << "huffmanTree: " << huffmanTreeTime << " microseconds" << '\n';
     std::cout << "getKeys: " << getKeysTime << " microseconds" << '\n';
-    std::cout << "vectorDict: " << vectorDictTime << " microseconds" << '\n';
-    std::cout << "writeOutDict: " << writeOutDictTime << " microseconds" << '\n';
+    std::cout << "outFile: " << outFileTime << " microseconds" << '\n';
+    std::cout << "writeDict: " << writeDictTime << " microseconds" << '\n';
     std::cout << "compress: " << compressTime << " microseconds" << '\n';
-    std::cout << "interpretDict: " << interpretDictTime << " microseconds" << '\n';
+    std::cout << "inFile: " << inFileTime << " microseconds" << '\n';
+    std::cout << "readDict: " << readDictTime << " microseconds" << '\n';
+    std::cout << "assertTime: " << assertTime << " microseconds" << '\n';
     std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << '\n';
 
     std::cout << "All done :)" << std::endl;
