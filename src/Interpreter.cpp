@@ -32,10 +32,7 @@ std::string Interpreter::decompress(const std::vector<bool> &in) const
             tempVector.clear();
         }
     }
-    if (!tempVector.empty())
-    {
-        throw std::runtime_error("Leftover bits");
-    }
+
     return returnString;
 }
 
