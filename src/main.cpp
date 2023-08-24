@@ -168,7 +168,7 @@ public:
     /**
      * @brief Returns the time in microseconds since the object was created
      *
-     * @return The time in microseconds since the object was created
+     * @return The time in milliseconds since the object was created
      */
     [[nodiscard]] long cumMicroseconds() const
     {
