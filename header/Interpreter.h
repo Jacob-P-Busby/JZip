@@ -29,6 +29,12 @@ public:
      */
     [[nodiscard]] std::string decompress(std::ifstream &in) const;
 
+    /**
+     * @brief Decompresses a vector of booleans using a CharHeap
+     *
+     * @param in A const vector of booleans to decompress passed by reference
+     * @return The decompressed string
+     */
     [[nodiscard]] std::string operator()(std::ifstream &in) const;
 
 private:
