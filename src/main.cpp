@@ -287,6 +287,7 @@ int main(int argc, char *argv[])
     std::cout << output << '\n';
     auto interpreterTime = timer.sectMicroseconds();
 
+
     std::cout << "validityCheck: " << validityCheckTime << " microseconds" << '\n';
     std::cout << "slurp: " << slurpTime << " microseconds" << '\n';
     std::cout << "huffmanTree: " << huffmanTreeTime << " microseconds" << '\n';
