@@ -152,8 +152,8 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
  * @brief Timer class used to measure program performance
  *
  * @details
- * Used to measure the time between the creation of the object and the call of getMilliseconds()\n
- * getMilliseconds() returns the time in milliseconds since the object was created
+ * Used to measure the time between the creation of the object and the call of getMicroseconds()\n
+ * getMilliseconds() returns the time in microseconds since the object was created
  *
  */
 class Timer
@@ -168,7 +168,7 @@ public:
     /**
      * @brief Returns the time in microseconds since the object was created
      *
-     * @return The time in milliseconds since the object was created
+     * @return The time in microseconds since the object was created
      */
     [[nodiscard]] long cumMicroseconds() const
     {
