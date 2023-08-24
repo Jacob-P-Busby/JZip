@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <map>
@@ -26,9 +27,9 @@ public:
      * @param in A const vector of booleans to decompress passed by reference
      * @return The decompressed string
      */
-    [[nodiscard]] std::string decompress(const std::vector<bool> &in) const;
+    [[nodiscard]] std::string decompress(std::ifstream &in) const;
 
-    [[nodiscard]] std::string operator()(const std::vector<bool> &in) const;
+    [[nodiscard]] std::string operator()(std::ifstream &in) const;
 
 private:
     CharHeap *charHeap; // Pointer to the CharHeap used to store the characters

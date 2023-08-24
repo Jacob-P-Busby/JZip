@@ -54,7 +54,14 @@ CharHeap::~CharHeap()
 
 std::optional<char> CharHeap::getChar(const std::vector<bool> &key)
 {
-    if (key.size() > 13) return overflowMap[key];
+    if (key.size() > 13)
+    {
+        if (overflowMap.find(key) == overflowMap.end())
+            return std::nullopt;
+
+        return overflowMap[key];
+    }
+
     int index = 0;
     for (bool i : key)
     {
