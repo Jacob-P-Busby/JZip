@@ -37,44 +37,30 @@
  * @param in A const string to compress passed by reference
  * @param charMap A const map of characters and their paths used to compress the string passed by reference
  * @param out An ofstream to write the compressed data to
+ *
+ * @todo Change path to bitflags
  */
 void compress(const std::string &in, const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
 {
-    unsigned char byte = 0;
-    int bitCount = 0;
     for (const auto character : in)
-    {
         for (const auto &bit : charMap.at(character))
-        {
-            byte = (byte << 1) | bit;
-            bitCount++;
-            if (bitCount == 8)
-            {
-                out << byte;
-                byte = 0;
-                bitCount = 0;
-            }
-        }
-    }
-
-    char endByte = 0;
-    while (bitCount != 0)
-    {
-        byte = byte << 1;
-        bitCount++;
-        endByte++;
-        if (bitCount == 8)
-        {
-            out << byte;
-            byte = 0;
-            bitCount = 0;
-        }
-    }
-    out << endByte;
+            out << bit;
 }
 
 
-// TODO: Change path to bitflags
+/**
+ * @brief Writes the dictionary to a file
+ *
+ * @details
+ * The dictionary is written to a file in the following format:\n
+ * 1 byte path length\n
+ * n bytes path where n is the path length\n
+ * 1 byte character\n
+ * e.g. a(101) would be 0x03 FF 00 FF 61
+ *
+ * @param charMap The map of characters and their paths to write to the file
+ * @param out The ofstream to write the dictionary to
+ */
 void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
 {
     for (const auto &pair : charMap)
@@ -91,6 +77,20 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
 }
 
 
+/**
+ * @brief reads the dictionary from a file
+ *
+ * @details
+ * Assumes the dictionary is in the format specified in writeDict()\n
+ * Will leave the file pointer at the first bit of the compressed data
+ *
+ * @param in the file to read from
+ * @return the dictionary as a map of characters and their paths
+ * @throws std::runtime_error if the file ends unexpectedly
+ * @throws std::runtime_error if the file is not in the correct format
+ *
+ * @see writeDict()
+ */
 [[nodiscard]] std::map<char, std::vector<bool>> readDict(std::ifstream &in)
 {
     std::map<char, std::vector<bool>> charMap;
@@ -98,21 +98,21 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
     while (true)
     {
         if (in.eof()) throw std::runtime_error("Unexpected EOF");
-        unsigned char pathLength;
-        pathLength = in.get();
+        unsigned char pathLength = in.get();
         if (pathLength == 0) break;
 
         for (int i = 0; i < pathLength; i++)
         {
             if (in.eof()) throw std::runtime_error("Unexpected EOF");
-            bool bit;
-            bit = in.get();
+            bool bit = in.get();
             tempPath.push_back(bit);
         }
 
         if (in.eof()) throw std::runtime_error("Unexpected EOF");
-        char c;
-        c = static_cast<char>(in.get());
+        auto c = static_cast<char>(in.get());
+        if (charMap.find(c) != charMap.end())
+            throw std::runtime_error("Duplicate character in dictionary");
+
         charMap[c] = tempPath;
         tempPath.clear();
     }
@@ -132,7 +132,13 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
     }
 }
 
-
+/**
+ * Checks that there is 1 argument and that it is not a flag
+ *
+ * @param argc The count of arguments
+ * @param argv The arguments
+ * @return True if there is 1 argument and it is not a flag, false otherwise
+ */
 [[nodiscard]] bool validateArgs(int argc, char *argv[])
 {
     if (argc != 2) return false; // Is there more than 1 argument? Not taking options/multiple files rn.
@@ -265,7 +271,6 @@ int main(int argc, char *argv[])
     auto inFileTime = timer.sectMicroseconds();
 
     std::map<char, std::vector<bool>> newCharMap = readDict(inFile);
-    std::cout << "Here\n";
     auto readDictTime = timer.sectMicroseconds();
 
     for (const auto &pair : charMap)
@@ -277,6 +282,10 @@ int main(int argc, char *argv[])
     auto dictAssertTime = timer.sectMicroseconds();
 
     Interpreter interpreter(charMap);
+    std::string output = interpreter.decompress(inFile);
+    std::cout << output.size() << '\n';
+    std::cout << output << '\n';
+    auto interpreterTime = timer.sectMicroseconds();
 
     std::cout << "validityCheck: " << validityCheckTime << " microseconds" << '\n';
     std::cout << "slurp: " << slurpTime << " microseconds" << '\n';
@@ -288,6 +297,7 @@ int main(int argc, char *argv[])
     std::cout << "inFile: " << inFileTime << " microseconds" << '\n';
     std::cout << "readDict: " << readDictTime << " microseconds" << '\n';
     std::cout << "dictAssertTime: " << dictAssertTime << " microseconds" << '\n';
+    std::cout << "interpreter: " << interpreterTime << " microseconds" << '\n';
     std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << "\n\n";
 
     std::cout << "Original file size: " << formatBytes(std::filesystem::file_size(argv[1])) << '\n';

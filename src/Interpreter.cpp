@@ -19,25 +19,37 @@ Interpreter::~Interpreter()
     delete charHeap;
 }
 
-std::string Interpreter::decompress(const std::vector<bool> &in) const
+
+std::string Interpreter::decompress(std::ifstream &in) const
 {
     std::string returnString;
-    std::vector<bool> tempVector;
-    for (const bool &bit: in)
+    std::vector<bool> key;
+    auto current = in.tellg();
+    in.seekg(0, std::ios::end);
+    auto end = in.tellg();
+    in.seekg(current);
+
+    while (true)
     {
-        tempVector.push_back(bit);
-        if (const auto maybeChar = charHeap->getChar(tempVector))
+        char c;
+        in >> c;
+        if (in.tellg() == end) break;
+
+        if (c == '1') key.push_back(true);
+        else if (c == '0') key.push_back(false);
+        else throw std::runtime_error("Invalid character in compressed file");
+
+        if (charHeap->getChar(key).has_value())
         {
-            returnString += *maybeChar;
-            tempVector.clear();
+            returnString += charHeap->getChar(key).value();
+            key.clear();
         }
     }
-
     return returnString;
 }
 
 
-std::string Interpreter::operator()(const std::vector<bool> &in) const
+std::string Interpreter::operator()(std::ifstream &in) const
 {
     return decompress(in);
 }
