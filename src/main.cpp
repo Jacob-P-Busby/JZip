@@ -250,8 +250,10 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
  * @brief Timer class used to measure program performance
  *
  * @details
- * Used to measure the time between the creation of the object and the call of getMicroseconds()\n
- * getMilliseconds() returns the time in microseconds since the object was created
+ * Used to measure the time between the creation of the object and the most recent call of sectMicroseconds()\n
+ * cumMicroseconds() returns the time in microseconds since the object was created\n
+ * sectMicroseconds() returns the time in microseconds since the last call of sectMicroseconds()
+ * or the object was created, whichever was most recent
  *
  */
 class Timer
