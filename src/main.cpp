@@ -29,22 +29,118 @@
 
 
 /**
+ * @brief Writes a chunk to a file, including the first 2 bytes. Used by compress()
+ *
+ * @param chunkBuffer The chunk to write to the file
+ * @param out The ofstream to write the chunk to
+ *
+ * @throws std::runtime_error if chunkBuffer is not a multiple of 8 as it can't be split into bytes
+ */
+void writeChunk(const std::vector<bool> &chunkBuffer, bool endChunk, int ignoreBits, std::ofstream &out)
+{
+    if (chunkBuffer.size() % 8 != 0)
+        throw std::runtime_error("chunkBuffer is not a multiple of 8, can't be split into bytes");
+
+    if (endChunk)
+        out << static_cast<char>(0x00); // 0x00 signifies there is no more data to follow
+    else
+        out << static_cast<char>(0xFF); // 0xFF signifies there is more data to follow
+
+    out << static_cast<unsigned char>(ignoreBits); // Number of bits to ignore at the end of the chunk
+    char outChar = 0; // Character to write to file
+    int bitCount = 0; // Number of bits in outChar
+    for (const auto &bit : chunkBuffer)
+    {
+        outChar <<= 1;
+        if (bit) outChar |= 1;
+        bitCount++;
+        if (bitCount == 8)
+        {
+            out << outChar;
+            outChar = 0;
+            bitCount = 0;
+        }
+    }
+}
+
+
+/**
  * @brief Compresses a string using a map of characters and their paths, and outputs it to a file
  *
  * @details
- *
+ * Data is seperated into 20kb chunks, with the first byte of each chunk being 0x00 if it is the last chunk,
+ * or 0xFF if there is more data to follow. The second byte is the number of bits to ignore at the end of the chunk
+ * so it can conform to the 20kb size. The other 20kb - 2 bytes is the data. The last chunk may be less than 20kb,
+ * with EOF symbolizing the end of the chunk.\n\n
+ * Out will be left at the end of the last chunk, remaining open
  *
  * @param in A const string to compress passed by reference
  * @param charMap A const map of characters and their paths used to compress the string passed by reference
- * @param out An ofstream to write the compressed data to
- *
- * @todo Change path to bitflags
+ * @param out An ofstream to write the compressed data to passed by reference
  */
 void compress(const std::string &in, const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
 {
-    for (const auto character : in)
-        for (const auto &bit : charMap.at(character))
-            out << bit;
+    static const int bitsNeeded = (1000 * 20 * 8) - 2; // 20MB
+
+    std::vector<bool> chunkBuffer;
+    std::optional<char> overflowChar = std::nullopt;
+    for (const auto &c : in)
+    {
+        // Check if overflow character has to be added
+        if (overflowChar.has_value())
+        {
+            for (const auto &bit : charMap.at(overflowChar.value()))
+                chunkBuffer.push_back(bit);
+
+            overflowChar = std::nullopt;
+        }
+
+        // Add character to chunkBuffer
+        int bufferZeros = 0;
+        for (const auto &bit : charMap.at(c))
+            chunkBuffer.push_back(bit);
+
+        // Check if chunkBuffer is too long
+        if (chunkBuffer.size() > bitsNeeded)
+        {
+            // Remove overflow character
+            for (int i = 0; i < charMap.at(c).size(); i++)
+                chunkBuffer.pop_back();
+
+            // Add buffer zeros
+            for ( ; chunkBuffer.size() < bitsNeeded; )
+            {
+                chunkBuffer.push_back(false);
+                bufferZeros++;
+            }
+
+            // Set overflow character for next loop to add
+            overflowChar = c;
+        }
+
+        // Check if chunkBuffer is the correct length to write out
+        if (chunkBuffer.size() == bitsNeeded)
+        {
+            writeChunk(chunkBuffer, false, bufferZeros, out);
+
+            chunkBuffer.clear(); // Reset chunkBuffer for next chunk
+        }
+    }
+    if (!chunkBuffer.empty())
+    {
+        out << static_cast<char>(0x00); // 0x00 signifies there is no more data to follow
+        out << static_cast<unsigned char>(chunkBuffer.size() % 8); // Number of bits to ignore at the end of the chunk
+
+        // Add buffer zeros if needed
+        int bufferZeros = 0;
+        while (chunkBuffer.size() % 8 != 0)
+        {
+            chunkBuffer.push_back(false);
+            bufferZeros++;
+        }
+
+        writeChunk(chunkBuffer, true, bufferZeros, out);
+    }
 }
 
 
