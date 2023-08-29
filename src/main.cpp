@@ -121,15 +121,17 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
 
 
 [[nodiscard]] std::string formatBytes(unsigned long bytes) {
-    if (bytes < 1000) {
+    if (bytes < 1000)
         return std::to_string(bytes) + " B";
-    } else if (bytes < 1000 * 1000) {
+
+    if (bytes < 1000 * 1000)
+    {
         double kb = static_cast<double>(bytes) / 1000;
         return std::to_string(kb) + " KB";
-    } else {
-        double mb = static_cast<double>(bytes) / (1000 * 1000);
-        return std::to_string(mb) + " MB";
     }
+
+    double mb = static_cast<double>(bytes) / (1000 * 1000);
+    return std::to_string(mb) + " MB";
 }
 
 /**
