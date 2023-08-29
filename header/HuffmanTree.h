@@ -130,7 +130,7 @@ private:
          *
          * @return A map of characters and their paths, expressed as a vector of booleans
          *
-         * @todo Remove recursion before release to GitHub, it's embarrassing to have it in the code :(
+         * @todo Remove recursion, stack overflow isn't possible but it's still bad practice
          */
         [[nodiscard]] std::map<char, std::vector<bool>> getKeys() const;
     };
