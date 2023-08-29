@@ -5,9 +5,8 @@ Interpreter::Interpreter(const std::map<char, std::vector<bool>> &charMap)
 {
     // Reverse map
     std::map<std::vector<bool>, char> switchedMap;
-    for (const auto &pair: charMap) {
+    for (const auto &pair: charMap)
         switchedMap[pair.second] = pair.first;
-    }
 
     // Create CharHeap
     charHeap = new CharHeap(switchedMap);
