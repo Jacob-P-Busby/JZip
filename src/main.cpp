@@ -216,6 +216,12 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
 }
 
 
+/**
+ * @brief Formats bytes into a human readable format to print
+ *
+ * @param bytes The number of bytes to format
+ * @return The formatted bytes as a string to print, rounded to 2 decimal places e.g. 1.23 MB
+ */
 [[nodiscard]] std::string formatBytes(unsigned long bytes) {
     if (bytes < 1000)
         return std::to_string(bytes) + " B";
@@ -223,11 +229,13 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
     if (bytes < 1000 * 1000)
     {
         double kb = static_cast<double>(bytes) / 1000;
-        return std::to_string(kb) + " KB";
+        double kbRounded = ceil(kb * 100) / 100;
+        return std::to_string(kbRounded) + " KB";
     }
 
     double mb = static_cast<double>(bytes) / (1000 * 1000);
-    return std::to_string(mb) + " MB";
+    double mbRounded = ceil(mb * 100) / 100;
+    return std::to_string(mbRounded) + " MB";
 }
 
 /**
