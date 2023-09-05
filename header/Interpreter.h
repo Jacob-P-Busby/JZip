@@ -1,5 +1,6 @@
 #pragma once
 
+
 #include <cmath>
 #include <fstream>
 #include <stdexcept>
@@ -19,6 +20,9 @@ public:
      */
     explicit Interpreter(const std::map<char, std::vector<bool>> &charMap);
 
+    /**
+     * @brief Destructor for the Interpreter class, frees the CharHeap
+     */
     ~Interpreter();
 
 /**

@@ -18,6 +18,9 @@ public:
      */
     explicit CharHeap(const std::map<std::vector<bool>, char> &map);
 
+    /**
+     * @brief Destructor for the CharHeap class, frees the keys
+     */
     ~CharHeap();
 
     /**
@@ -38,10 +41,10 @@ public:
 
 private:
 
-    int depth;
-    char *keys;
-    unsigned char branchChar = 0;
-    std::map<std::vector<bool>, char> overflowMap;
+    int depth; // The depth of the keys array
+    char *keys; // The keys that are stored in the binary tree
+    unsigned char branchChar = 0; // The character used to indicate that a key doesn't have a value
+    std::map<std::vector<bool>, char> overflowMap; // Keys with a depth greater than 13 that aren't stored in the keys array
 };
 
 

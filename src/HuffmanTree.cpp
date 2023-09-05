@@ -3,19 +3,21 @@
 
 HuffmanTree::HuffmanTree(const std::string &input) {
     auto charMap = countChars(input); // Map of characters and their frequencies
-    std::priority_queue<Node *, std::vector<Node *>, CompareValue> nodeQueue; // Priority queue of nodes
 
-    // Create leaf nodes
+    // Priority queue of nodes, sorted by frequency, lowest first
+    std::priority_queue<Node *, std::vector<Node *>, CompareValue> nodeQueue;
+
+    // Create leaf nodes and add them to the queue
     for (auto &character: charMap) {
         nodeQueue.push(new Node(character.first, character.second));
     }
 
-    // Merge leaf nodes into tree
+    // Merge leaf nodes into tree until only one node remains, the root node
     while (nodeQueue.size() > 1) {
         Node *pLeft = nodeQueue.top(); // Left child
-        nodeQueue.pop();
+        nodeQueue.pop(); // Remove left child from queue
         Node *pRight = nodeQueue.top(); // Right child
-        nodeQueue.pop();
+        nodeQueue.pop(); // Remove right child from queue
         nodeQueue.push(new Node(pLeft, pRight)); // New branch node holding children
     }
 
@@ -25,7 +27,7 @@ HuffmanTree::HuffmanTree(const std::string &input) {
 
 
 HuffmanTree::~HuffmanTree() {
-    delete pRoot; // Trigger recursive destructor of Node, ensuring all Nodes are deleted
+    delete pRoot; // Trigger recursive destructor of pRoot, ensuring all Nodes are deleted
 }
 
 
@@ -44,20 +46,22 @@ std::map<char, std::vector<bool>> HuffmanTree::getKeys() const {
 
 
 HuffmanTree::Node::Node(HuffmanTree::Node *pLChild, HuffmanTree::Node *pRChild) {
-    this->freq = pLChild->freq + pRChild->freq;
+    this->freq = pLChild->freq + pRChild->freq; // Sum of children's frequencies
     this->pLeft = pLChild;
     this->pRight = pRChild;
+    // c is irrelevant since pLeft and pRight are not nullptr
 }
 
 
 HuffmanTree::Node::Node(char c, long long int freq) {
     this->c = c;
     this->freq = freq;
+    // pLeft and pRight default to nullptr, indicating this is a leaf node
 }
 
 
 HuffmanTree::Node::~Node() {
-    if (!pLeft) return; // Leaf node
+    if (!pLeft) return; // This is a leaf node, no need to delete children
     delete pLeft;
     delete pRight;
 }
