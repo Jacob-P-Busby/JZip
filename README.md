@@ -20,4 +20,4 @@ Currently, the file is stored as bytes, so the compressed file is 8 times larger
 └── working - The directory where the binary should be executed from
 ```
 
-Feel free to fork and whatnot :happy:
+Feel free to fork and whatnot 😄
