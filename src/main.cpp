@@ -67,7 +67,7 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
     {
         unsigned char pathLength = pair.second.size();
         out << pathLength;
-        for (const auto &bit : pair.second)
+        for (const auto &bit : pair.second) // Write out bit
         {
             out << bit;
         }
@@ -104,12 +104,12 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
         for (int i = 0; i < pathLength; i++)
         {
             if (in.eof()) throw std::runtime_error("Unexpected EOF");
-            bool bit = in.get();
+            bool bit = in.get(); // Implicit conversion from char to bool, 0s are false, 1s are true
             tempPath.push_back(bit);
         }
 
         if (in.eof()) throw std::runtime_error("Unexpected EOF");
-        auto c = static_cast<char>(in.get());
+        auto c = static_cast<char>(in.get()); // The character is the byte next to the path
         if (charMap.find(c) != charMap.end())
             throw std::runtime_error("Duplicate character in dictionary");
 
@@ -120,6 +120,12 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
 }
 
 
+/**
+ * @brief Formats bytes into a human readable format
+ *
+ * @param bytes The number of bytes to format
+ * @return The bytes formatted as a string with the appropriate unit
+ */
 [[nodiscard]] std::string formatBytes(unsigned long bytes) {
     if (bytes < 1000)
         return std::to_string(bytes) + " B";
@@ -133,6 +139,7 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
     double mb = static_cast<double>(bytes) / (1000 * 1000);
     return std::to_string(mb) + " MB";
 }
+
 
 /**
  * Checks that there is 1 argument and that it is not a flag
@@ -275,6 +282,7 @@ int main(int argc, char *argv[])
     std::map<char, std::vector<bool>> newCharMap = readDict(inFile);
     auto readDictTime = timer.sectMicroseconds();
 
+    // Ensure that the dictionaries are the same
     for (const auto &pair : charMap)
     {
         assert(pair.second.size() == newCharMap[pair.first].size());
@@ -283,6 +291,7 @@ int main(int argc, char *argv[])
     }
     auto dictAssertTime = timer.sectMicroseconds();
 
+    // Decompress the body
     Interpreter interpreter(charMap);
     std::string output = interpreter.decompress(inFile);
     std::cout << output.size() << '\n';

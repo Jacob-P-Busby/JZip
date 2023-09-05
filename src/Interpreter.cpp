@@ -24,6 +24,8 @@ std::string Interpreter::decompress(std::ifstream &in) const
 {
     std::string returnString;
     std::vector<bool> key;
+
+    // Get end of file
     auto current = in.tellg();
     in.seekg(0, std::ios::end);
     auto end = in.tellg();
@@ -33,13 +35,13 @@ std::string Interpreter::decompress(std::ifstream &in) const
     {
         char c;
         in >> c;
-        if (in.tellg() == end) break;
+        if (in.tellg() == end) break; // If we're at the end of the file, break
 
         if (c == '1') key.push_back(true);
         else if (c == '0') key.push_back(false);
         else throw std::runtime_error("Invalid character in compressed file");
 
-        if (charHeap->getChar(key).has_value())
+        if (charHeap->getChar(key).has_value()) // If the key is in the CharHeap, add the character to the string
         {
             returnString += charHeap->getChar(key).value();
             key.clear();

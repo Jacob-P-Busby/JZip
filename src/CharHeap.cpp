@@ -3,19 +3,22 @@
 
 CharHeap::CharHeap(const std::map<std::vector<bool>, char> &map)
 {
+    // Find the longest key in the map
     depth = 0;
     for (const auto &pair : map)
     {
         if (pair.first.size() > depth) depth = static_cast<int>(pair.first.size());
     }
 
-    if (depth > 13) depth = 13;
+    if (depth > 13) depth = 13; // Max depth is 13, anything longer is put in the overflow map
 
     int size = static_cast<int>(std::pow(2, depth + 1));
     size -= 2;
 
     keys = new char[size];
 
+    // Sift through map to find the first character that isn't in the map
+    // TODO: Handle every character being used
     branchChar = 0;
     for (const auto &pair : map)
     {
@@ -59,22 +62,22 @@ CharHeap::~CharHeap()
 
 std::optional<char> CharHeap::getChar(const std::vector<bool> &key)
 {
-    if (key.size() > 13)
+    if (key.size() > 13) // If the key is too long, check the overflow map
     {
         if (overflowMap.find(key) == overflowMap.end())
-            return std::nullopt;
+            return std::nullopt; // If the key isn't in the overflow map, return an empty optional
 
         return overflowMap[key];
     }
 
     int index = 0;
-    for (bool i : key)
+    for (bool i : key) // Convert key to index
     {
         if (i) index = index * 2 + 2;
         else index = index * 2 + 1;
     }
-    if (keys[index] == branchChar) return std::nullopt;
-    return keys[index];
+    if (keys[index] == branchChar) return std::nullopt; // If the key isn't in the CharHeap, return an empty optional
+    return keys[index]; // Return the value at the index, which is the character corresponding to the key
 }
 
 
