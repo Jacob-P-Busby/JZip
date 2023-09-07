@@ -48,7 +48,6 @@ CharHeap::CharHeap(const std::map<std::vector<bool>, char> &map)
         }
 
         // If the index is out of bounds, should've been caught earlier and added to overflow map
-        if (index >= size) throw std::runtime_error("Index out of bounds for CharHeap::keys");
         keys[index] = pair.second;
     }
 }

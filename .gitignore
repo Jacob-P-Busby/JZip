@@ -2,4 +2,4 @@ cmake-build-debug
 cmake-build-release
 .idea
 
-working/bee.txt.jzip
+working/*.jzip

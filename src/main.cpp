@@ -141,21 +141,6 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
 }
 
 
-/**
- * Checks that there is 1 argument and that it is not a flag
- *
- * @param argc The count of arguments
- * @param argv The arguments
- * @return True if there is 1 argument and it is not a flag, false otherwise
- */
-[[nodiscard]] bool validateArgs(int argc, char *argv[])
-{
-    if (argc != 2) return false; // Is there more than 1 argument? Not taking options/multiple files rn.
-    if (argv[1][0] == '-') return false; // Is first argument a flag? Not using those rn.
-    return true; // We all good
-}
-
-
 // Will give own file later, for now it lives here
 /**
  * @brief Timer class used to measure program performance
@@ -206,18 +191,12 @@ private:
 };
 
 
-int main(int argc, char *argv[])
+int test(const std::string &file)
 {
     Timer timer;
 
-    // Ensure correct number of args
-    if (!validateArgs(argc, argv)) {
-        std::cout << "Usage: " << argv[0] << " <file>" << std::endl;
-        return 1;
-    }
-
     // Check if file exists and is accessible
-    std::ifstream inFile(argv[1], std::ios::binary);
+    std::ifstream inFile(file, std::ios::binary);
     if (!inFile.good()) {
         std::cout << "File can't be read" << '\n';
         std::cout << "Make sure the file exists and is accessible" << '\n';
@@ -255,7 +234,7 @@ int main(int argc, char *argv[])
     auto getKeysTime = timer.sectMicroseconds();
 
     // Create jzip filename
-    std::string jzipFileName = argv[1];
+    std::string jzipFileName = file;
     jzipFileName += ".jzip";
 
     std::ofstream outFile(jzipFileName, std::ios::binary);
@@ -287,7 +266,7 @@ int main(int argc, char *argv[])
     {
         assert(pair.second.size() == newCharMap[pair.first].size());
         for (int i = 0; i < pair.second.size(); i++)
-        assert(pair.second[i] == charMap[pair.first][i]);
+            assert(pair.second[i] == charMap[pair.first][i]);
     }
     auto dictAssertTime = timer.sectMicroseconds();
 
@@ -310,10 +289,60 @@ int main(int argc, char *argv[])
     std::cout << "readDict: " << readDictTime << " microseconds" << '\n';
     std::cout << "dictAssertTime: " << dictAssertTime << " microseconds" << '\n';
     std::cout << "interpreter: " << interpreterTime << " microseconds" << '\n';
+
+    std::cout << "Original file size: " << formatBytes(std::filesystem::file_size(file)) << '\n';
+    std::cout << "Compressed file size: " << formatBytes(std::filesystem::file_size(jzipFileName)) << '\n';
     std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << "\n\n";
 
-    std::cout << "Original file size: " << formatBytes(std::filesystem::file_size(argv[1])) << '\n';
-    std::cout << "Compressed file size: " << formatBytes(std::filesystem::file_size(jzipFileName)) << '\n';
+    return 0;
+}
+
+
+int main(int argc, char *argv[])
+{
+    Timer timer;
+
+    if (argc < 2)
+    {
+        std::cout << "Invalid usage\nSee -h for more information" << std::endl;
+        return 1;
+    }
+
+    std::string arg1 = argv[1];
+
+    if (arg1 == "-h" || arg1 == "--help")
+    {
+        std::cout << "Usage:\n";
+        std::cout << "jzip <flags>\n";
+        std::cout << "jzip <flags> [<file> ...]\n\n";
+
+        std::cout << "Flags:\n";
+        std::cout << "-h --help\n";
+        std::cout << "    Display this help message\n";
+        std::cout << "-t --test\n";
+        std::cout << "    Run tests, assuming it is executed in the test directory\n\n";
+
+        std::cout << "Example: jzip file.txt\n";
+        std::cout << "Example: jzip -t\n";
+        return 0;
+    }
+
+    if (arg1 == "-t" || arg1 == "--test")
+    {
+        std::cout << "Running tests...\n";
+
+        std::cout << "world192.txt\n";
+        test("bee.txt");
+        test("ecoli.txt");
+        test("bible.txt");
+    }
+    else
+    {
+        std::cout << "Actual usage isn't implemented yet :/\n";
+        return 1;
+    }
+
+    std::cout << "cumCumTime: " << timer.cumMicroseconds() << " microseconds" << "\n\n";
 
     std::cout << "All done :)" << std::endl;
 
