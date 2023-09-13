@@ -17,3 +17,5 @@ file(GLOB SOURCES src/*.cpp)
 add_executable(jzip ${SOURCES})
 
 target_include_directories(jzip PRIVATE header)
+
+target_compile_options(jzip PRIVATE -Wall -Wextra -Werror)
