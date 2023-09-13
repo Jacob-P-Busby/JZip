@@ -7,7 +7,7 @@ CharHeap::CharHeap(const std::map<std::vector<bool>, char> &map)
     depth = 0;
     for (const auto &pair : map)
     {
-        if (pair.first.size() > depth) depth = static_cast<int>(pair.first.size());
+        if (static_cast<int>(pair.first.size()) > depth) depth = static_cast<int>(pair.first.size());
     }
 
     if (depth > 13) depth = 13; // Max depth is 13, anything longer is put in the overflow map

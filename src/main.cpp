@@ -265,7 +265,7 @@ int test(const std::string &file)
     for (const auto &pair : charMap)
     {
         assert(pair.second.size() == newCharMap[pair.first].size());
-        for (int i = 0; i < pair.second.size(); i++)
+        for (int i = 0; i < static_cast<int>(pair.second.size()); i++)
             assert(pair.second[i] == charMap[pair.first][i]);
     }
     auto dictAssertTime = timer.sectMicroseconds();
@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
         std::cout << "-h --help\n";
         std::cout << "    Display this help message\n";
         std::cout << "-t --test\n";
-        std::cout << "    Run tests, assuming it is executed in the test directory\n\n";
+        std::cout << "    Run tests, assuming it is executed in the working directory provided\n\n";
 
         std::cout << "Example: jzip file.txt\n";
         std::cout << "Example: jzip -t\n";
