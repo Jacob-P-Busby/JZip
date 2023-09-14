@@ -1,4 +1,3 @@
-#include <cassert>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -40,7 +39,7 @@
  *
  * @todo Change path to bitflags
  */
-void compress(const std::string &in, const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
+void compressOut(const std::string &in, const std::map<char, std::vector<bool>> &charMap, std::ofstream &out)
 {
     for (const auto character : in)
         for (const auto &bit : charMap.at(character))
@@ -104,8 +103,10 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
         for (int i = 0; i < pathLength; i++)
         {
             if (in.eof()) throw std::runtime_error("Unexpected EOF");
-            bool bit = in.get(); // Implicit conversion from char to bool, 0s are false, 1s are true
-            tempPath.push_back(bit);
+            unsigned char bit = in.get();
+            if (bit == '0') tempPath.push_back(false);
+            else if (bit == '1') tempPath.push_back(true);
+            else throw std::runtime_error("Invalid bit");
         }
 
         if (in.eof()) throw std::runtime_error("Unexpected EOF");
@@ -141,14 +142,99 @@ void writeDict(const std::map<char, std::vector<bool>> &charMap, std::ofstream &
 }
 
 
+std::map<char, std::vector<bool>> compress(const std::string &file)
+{
+    // Check if file exists and is accessible
+    std::ifstream inFile(file, std::ios::binary);
+    if (!inFile.good()) {
+        std::cout << "File can't be read" << '\n';
+        std::cout << "Make sure the file exists and is accessible" << '\n';
+        throw std::runtime_error("File can't be read");
+    }
+
+    // Check if file is empty
+    inFile.seekg(0, std::ios::end);
+    if (inFile.tellg() == 0) {
+        std::cout << "File is empty" << '\n';
+        throw std::runtime_error("File is empty");
+    }
+
+    // Check if file is too large
+    inFile.seekg(0, std::ios::beg);
+    if (inFile.tellg() > 1000 * 1000 * 20) {
+        std::cout << "File is too large" << '\n';
+        std::cout << "File must be less than 20MB" << '\n';
+        throw std::runtime_error("File is too large");
+    }
+
+    // Slurp and close file
+    std::string input = slurp(inFile);
+    inFile.close();
+
+    // Ensure fie contains stuff to compress
+    if (input.empty()) throw std::runtime_error("Empty file");
+
+    HuffmanTree huffmanTree(input);
+
+    std::map<char, std::vector<bool>> charMap = huffmanTree.getKeys();
+
+    // Create jzip filename
+    std::string jzipFileName = file;
+    jzipFileName += ".jzip";
+
+    std::ofstream outFile(jzipFileName, std::ios::binary);
+    if (!outFile.good()) throw std::runtime_error("outFile is not good");
+
+    writeDict(charMap, outFile);
+
+    // Write compressed data to file
+    compressOut(input, charMap, outFile);
+
+    outFile.close();
+
+    return charMap;
+}
+
+
+/**
+ * @brief Decompresses a file, saving the output to a file
+ *
+ * @param fileName The name/path of the file to decompress
+ * @param outFileName The name/path of the file to save the output to
+ */
+void inflate(const std::string &fileName, const std::string &outFileName)
+{
+    std::ifstream inFile(fileName, std::ios::binary);
+
+    // Ensure inFile is in good condition
+    if (!inFile.good()) {
+        throw std::runtime_error("inFile is not good");
+    }
+
+    std::map<char, std::vector<bool>> newCharMap = readDict(inFile);
+
+    // Decompress the body
+    Interpreter interpreter(newCharMap);
+    std::string output = interpreter.decompress(inFile);
+
+    std::ofstream outFile(outFileName);
+
+    // Ensure outFile is in good condition
+    if (!outFile.good()) {
+        throw std::runtime_error("outFile is not good");
+    }
+
+    outFile << output;
+    outFile.close();
+}
+
 // Will give own file later, for now it lives here
 /**
  * @brief Timer class used to measure program performance
  *
  * @details
  * Used to measure the time between the creation of the object and the call of getMicroseconds()\n
- * getMilliseconds() returns the time in microseconds since the object was created
- *
+ * Can also be used to measure the time between calls of sectMicroseconds()\n
  */
 class Timer
 {
@@ -156,7 +242,7 @@ public:
     Timer()
     {
         start = std::chrono::high_resolution_clock::now();
-        recent = start;
+        sect = start;
     }
 
     /**
@@ -170,129 +256,45 @@ public:
         return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
     }
 
-
     /**
-     * @brief Returns the time in microseconds since the last call of sectMicroseconds() or the object was created
+     * @brief Returns the time in microseconds since the last call of sectMicroseconds()
      *
-     * @return A long representing the time in microseconds since the last call of sectMicroseconds()
-     *         or the object was created
+     * @returns The time in microseconds since the last call of sectMicroseconds()
      */
     [[nodiscard]] long sectMicroseconds()
     {
         auto end = std::chrono::high_resolution_clock::now();
-        auto returnTime = std::chrono::duration_cast<std::chrono::microseconds>(end - recent).count();
-        recent = end;
-        return returnTime;
+        long time = std::chrono::duration_cast<std::chrono::microseconds>(end - sect).count();
+        sect = end;
+        return time;
     }
 
 private:
     std::chrono::time_point<std::chrono::high_resolution_clock> start; // Time when object was created
-    std::chrono::time_point<std::chrono::high_resolution_clock> recent; // Time when getMilliseconds() was called
+    std::chrono::time_point<std::chrono::high_resolution_clock> sect; // Time when sectMicroseconds() was called
 };
 
 
 int test(const std::string &file)
 {
-    Timer timer;
+    std::cout << "====================\n";
+    std::cout << "Testing " << file << '\n';
+    std::cout << "====================\n";
 
-    // Check if file exists and is accessible
-    std::ifstream inFile(file, std::ios::binary);
-    if (!inFile.good()) {
-        std::cout << "File can't be read" << '\n';
-        std::cout << "Make sure the file exists and is accessible" << '\n';
-        return 1;
-    }
-
-    // Check if file is empty
-    inFile.seekg(0, std::ios::end);
-    if (inFile.tellg() == 0) {
-        std::cout << "File is empty" << '\n';
-        return 1;
-    }
-
-    // Check if file is too large
-    inFile.seekg(0, std::ios::beg);
-    if (inFile.tellg() > 1000 * 1000 * 20) {
-        std::cout << "File is too large" << '\n';
-        std::cout << "File must be less than 20MB" << '\n';
-        return 1;
-    }
-    auto validityCheckTime = timer.sectMicroseconds();
-
-    // Slurp and close file
-    std::string input = slurp(inFile);
-    inFile.close();
-    auto slurpTime = timer.sectMicroseconds();
+    std::cout << "Compressing...\n";
+    compress(file);
+    std::cout << "Compressed\n\n";
 
     // Ensure fie contains stuff to compress
-    if (input.empty()) throw std::runtime_error("Empty file");
-
-    HuffmanTree huffmanTree(input);
-    auto huffmanTreeTime = timer.sectMicroseconds();
-
-    std::map<char, std::vector<bool>> charMap = huffmanTree.getKeys();
-    auto getKeysTime = timer.sectMicroseconds();
-
-    // Create jzip filename
     std::string jzipFileName = file;
     jzipFileName += ".jzip";
 
-    std::ofstream outFile(jzipFileName, std::ios::binary);
-    if (!outFile.good()) throw std::runtime_error("outFile is not good");
-    auto outFileTime = timer.sectMicroseconds();
-
-    writeDict(charMap, outFile);
-    auto writeDictTime = timer.sectMicroseconds();
-
-    // Write compressed data to file
-    compress(input, charMap, outFile);
-    auto compressTime = timer.sectMicroseconds();
-
-    outFile.close();
-
-    inFile.open(jzipFileName);
-
-    // Ensure inFile is in good condition
-    if (!inFile.good()) {
-        throw std::runtime_error("inFile is not good");
-    }
-    auto inFileTime = timer.sectMicroseconds();
-
-    std::map<char, std::vector<bool>> newCharMap = readDict(inFile);
-    auto readDictTime = timer.sectMicroseconds();
-
-    // Ensure that the dictionaries are the same
-    for (const auto &pair : charMap)
-    {
-        assert(pair.second.size() == newCharMap[pair.first].size());
-        for (int i = 0; i < static_cast<int>(pair.second.size()); i++)
-            assert(pair.second[i] == charMap[pair.first][i]);
-    }
-    auto dictAssertTime = timer.sectMicroseconds();
-
-    // Decompress the body
-    Interpreter interpreter(charMap);
-    std::string output = interpreter.decompress(inFile);
-    std::cout << output.size() << '\n';
-    std::cout << output << '\n';
-    auto interpreterTime = timer.sectMicroseconds();
-
-
-    std::cout << "validityCheck: " << validityCheckTime << " microseconds" << '\n';
-    std::cout << "slurp: " << slurpTime << " microseconds" << '\n';
-    std::cout << "huffmanTree: " << huffmanTreeTime << " microseconds" << '\n';
-    std::cout << "getKeys: " << getKeysTime << " microseconds" << '\n';
-    std::cout << "outFile: " << outFileTime << " microseconds" << '\n';
-    std::cout << "writeDict: " << writeDictTime << " microseconds" << '\n';
-    std::cout << "compress: " << compressTime << " microseconds" << '\n';
-    std::cout << "inFile: " << inFileTime << " microseconds" << '\n';
-    std::cout << "readDict: " << readDictTime << " microseconds" << '\n';
-    std::cout << "dictAssertTime: " << dictAssertTime << " microseconds" << '\n';
-    std::cout << "interpreter: " << interpreterTime << " microseconds" << '\n';
+    std::cout << "Inflating...\n";
+    inflate(jzipFileName, file + ".out");
+    std::cout << "Inflated\n\n";
 
     std::cout << "Original file size: " << formatBytes(std::filesystem::file_size(file)) << '\n';
-    std::cout << "Compressed file size: " << formatBytes(std::filesystem::file_size(jzipFileName)) << '\n';
-    std::cout << "cumTime: " << timer.cumMicroseconds() << " microseconds" << "\n\n";
+    std::cout << "Compressed file size: " << formatBytes(std::filesystem::file_size(jzipFileName)) << "\n";
 
     return 0;
 }
@@ -300,8 +302,6 @@ int test(const std::string &file)
 
 int main(int argc, char *argv[])
 {
-    Timer timer;
-
     if (argc < 2)
     {
         std::cout << "Invalid usage\nSee -h for more information" << std::endl;
@@ -314,7 +314,7 @@ int main(int argc, char *argv[])
     {
         std::cout << "Usage:\n";
         std::cout << "jzip <flags>\n";
-        std::cout << "jzip <flags> [<file> ...]\n\n";
+        std::cout << "jzip <command> [<file> ...]\n\n";
 
         std::cout << "Flags:\n";
         std::cout << "-h --help\n";
@@ -329,12 +329,21 @@ int main(int argc, char *argv[])
 
     if (arg1 == "-t" || arg1 == "--test")
     {
-        std::cout << "Running tests...\n";
+        Timer timer;
+        std::cout << "Running tests...\n\n";
 
-        std::cout << "world192.txt\n";
         test("bee.txt");
+        std::cout << "Test time: " << timer.sectMicroseconds() << " microseconds\n\n";
         test("ecoli.txt");
+        std::cout << "Test time: " << timer.sectMicroseconds() << " microseconds\n\n";
         test("bible.txt");
+        std::cout << "Test time: " << timer.sectMicroseconds() << " microseconds\n\n";
+
+        std::cout << "====================\n";
+        std::cout << "All tests completed\n";
+        std::cout << "====================\n\n";
+
+        std::cout << "Total test time: " << timer.cumMicroseconds() << " microseconds\n";
     }
     else
     {
@@ -342,9 +351,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    std::cout << "cumCumTime: " << timer.cumMicroseconds() << " microseconds" << "\n\n";
-
-    std::cout << "All done :)" << std::endl;
 
     return 0;
 }
